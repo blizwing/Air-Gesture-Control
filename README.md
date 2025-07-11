@@ -25,4 +25,8 @@ Run the main application:
 python main.py
 ```
 
-A window will display the webcam feed with checkboxes to enable or disable gestures. Swipe and finger gestures will trigger the corresponding Windows actions.
+A window will display the webcam feed with checkboxes to enable or disable gestures.
+Swipe gestures control paging and a new scroll mode allows fine scrolling.
+To activate scroll mode hold an open palm (all five fingers) and then point
+your index finger toward the camera. Moving the finger up or down scrolls the
+foreground window.

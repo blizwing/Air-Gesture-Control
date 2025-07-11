@@ -16,6 +16,7 @@ class Gesture:
 
     type: str
     fingers: int | None = None
+    delta: float | None = None
 
 
 class HandDetector:
@@ -28,13 +29,16 @@ class HandDetector:
 
         self.hands = mp.solutions.hands.Hands(
             static_image_mode=False,
-            max_num_hands=1,
+            max_num_hands=2,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
         )
         self.draw = mp.solutions.drawing_utils
         self.history: deque[Tuple[float, float, float]] = deque(maxlen=5)
         self.last_finger_time = 0.0
+        self.scroll_mode = False
+        self._activation_time = 0.0
+        self._scroll_ref_y: Optional[float] = None
 
     def release(self) -> None:
         """Release camera resources."""
@@ -84,6 +88,27 @@ class HandDetector:
             return "swipe_down"
         return None
 
+    def _select_closest_hand(self, hands) -> Optional[any]:
+        """Return hand landmarks with largest bounding box."""
+        best = None
+        best_area = 0.0
+        for lm in hands:
+            xs = [p.x for p in lm.landmark]
+            ys = [p.y for p in lm.landmark]
+            area = (max(xs) - min(xs)) * (max(ys) - min(ys))
+            if area > best_area:
+                best_area = area
+                best = lm
+        if best_area < 0.05:  # ensure hand close enough
+            return None
+        return best
+
+    def _is_pointing_at_camera(self, landmarks) -> bool:
+        """Return True if index finger points toward camera."""
+        tip = landmarks.landmark[8]
+        dip = landmarks.landmark[7]
+        return tip.z < dip.z - 0.02
+
     def process(self) -> Tuple[Optional[Gesture], Optional[any]]:
         """Capture frame and return detected gesture and annotated frame."""
         ret, frame = self.cap.read()
@@ -94,19 +119,41 @@ class HandDetector:
         results = self.hands.process(rgb)
         gesture: Optional[Gesture] = None
         if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
+            hand_landmarks = self._select_closest_hand(results.multi_hand_landmarks)
+            if hand_landmarks:
                 self.draw.draw_landmarks(frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS)
                 wrist = hand_landmarks.landmark[0]
                 self.history.append((time.time(), wrist.x, wrist.y))
                 fingers = self._count_fingers(hand_landmarks)
-                if fingers:
-                    now = time.time()
-                    if now - self.last_finger_time > 0.5:
+                now = time.time()
+
+                if self.scroll_mode:
+                    if fingers == 1 and self._is_pointing_at_camera(hand_landmarks):
+                        idx = hand_landmarks.landmark[8].y
+                        if self._scroll_ref_y is None:
+                            self._scroll_ref_y = idx
+                        delta = self._scroll_ref_y - idx
+                        self._scroll_ref_y = idx
+                        gesture = Gesture(type="scroll", delta=delta)
+                    else:
+                        self.scroll_mode = False
+                        self._scroll_ref_y = None
+                else:
+                    if fingers == 5:
+                        self._activation_time = now
+                    elif fingers == 1 and (now - self._activation_time) < 1.5 and self._is_pointing_at_camera(hand_landmarks):
+                        self.scroll_mode = True
+                        self._scroll_ref_y = hand_landmarks.landmark[8].y
+                    elif fingers and now - self.last_finger_time > 0.5:
                         gesture = Gesture(type="fingers", fingers=fingers)
                         self.last_finger_time = now
-                swipe = self._detect_swipe()
-                if swipe:
-                    gesture = Gesture(type=swipe)
+
+                if not self.scroll_mode:
+                    swipe = self._detect_swipe()
+                    if swipe:
+                        gesture = Gesture(type=swipe)
+            else:
+                self.history.clear()
         else:
             self.history.clear()
         return gesture, frame
