@@ -31,6 +31,12 @@ def _press_combo(*keys: int) -> None:
         win32api.keybd_event(k, 0, win32con.KEYEVENTF_KEYUP, 0)
 
 
+def release_mod_keys() -> None:
+    """Release the Windows modifier key in case it remains pressed."""
+    MOD_WIN = 0x5B
+    win32api.keybd_event(MOD_WIN, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+
 def dismiss_notifications() -> None:
     """Dismiss Windows notifications using Win+V then Esc."""
     MOD_WIN = 0x5B
