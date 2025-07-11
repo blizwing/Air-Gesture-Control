@@ -72,3 +72,8 @@ def toggle_taskbar_slot(slot: int) -> None:
         win32gui.ShowWindow(after, win32con.SW_SHOWMAXIMIZED)
 
 
+def scroll_wheel(delta: int) -> None:
+    """Scroll mouse wheel by delta units."""
+    win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+
+
