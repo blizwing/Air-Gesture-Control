@@ -27,6 +27,7 @@ class App(tk.Tk):
             "scroll": tk.BooleanVar(value=True),
         }
         self._build_ui()
+        self._build_overlay()
         self.last_action: Dict[str, float] = {}
         self.delay = 66  # ~15 FPS
         self.update_frame()
@@ -39,6 +40,22 @@ class App(tk.Tk):
         for name, var in self.enabled.items():
             cb = tk.Checkbutton(btn_frame, text=name, variable=var)
             cb.pack(side=tk.LEFT)
+        hide_btn = tk.Button(btn_frame, text="Hide", command=self.iconify)
+        hide_btn.pack(side=tk.LEFT)
+
+    def _build_overlay(self) -> None:
+        """Create full-screen overlay used for scroll mode."""
+        self.overlay = tk.Toplevel(self)
+        self.overlay.overrideredirect(True)
+        self.overlay.attributes("-topmost", True)
+        self.overlay.attributes("-transparentcolor", "black")
+        self.overlay.geometry(
+            f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}+0+0"
+        )
+        self.canvas = tk.Canvas(self.overlay, bg="black", highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        self.overlay.withdraw()
+        self.overlay_visible = False
 
     def update_frame(self) -> None:
         gesture, frame = self.detector.process()
@@ -49,9 +66,16 @@ class App(tk.Tk):
             self.video_label.imgtk = imgtk
             self.video_label.configure(image=imgtk)
         if self.detector.scroll_mode:
-            self.video_label.configure(highlightbackground="white", highlightthickness=4)
-        else:
-            self.video_label.configure(highlightthickness=0)
+            if not self.overlay_visible:
+                self.canvas.delete("all")
+                w = self.winfo_screenwidth()
+                h = self.winfo_screenheight()
+                self.canvas.create_rectangle(0, 0, w, h, outline="white", width=4)
+                self.overlay.deiconify()
+                self.overlay_visible = True
+        elif self.overlay_visible:
+            self.overlay.withdraw()
+            self.overlay_visible = False
         if gesture:
             self.handle_gesture(gesture)
         self.after(self.delay, self.update_frame)
