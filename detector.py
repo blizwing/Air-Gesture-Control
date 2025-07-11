@@ -13,8 +13,6 @@ import mediapipe as mp
 @dataclass
 class Gesture:
     type: str
-    fingers: Optional[int] = None
-    delta: Optional[float] = None
 
 
 class HandDetector:
@@ -31,32 +29,11 @@ class HandDetector:
         )
         self.draw = mp.solutions.drawing_utils
         self.history: deque[Tuple[float, float, float]] = deque(maxlen=5)
-        self.last_finger_time = 0.0
-        self.scroll_mode = False
-        self._activation_time = 0.0
-        self._scroll_ref_y: Optional[float] = None
 
     def release(self) -> None:
         self.cap.release()
         self.hands.close()
 
-    def _count_fingers(self, landmarks) -> int:
-        tips = [4, 8, 12, 16, 20]
-        pips = [2, 6, 10, 14, 18]
-        fingers = 0
-        lm = [(lm.x, lm.y) for lm in landmarks.landmark]
-        # thumb
-        if lm[5][0] < lm[17][0]:
-            if lm[tips[0]][0] > lm[pips[0]][0]:
-                fingers += 1
-        else:
-            if lm[tips[0]][0] < lm[pips[0]][0]:
-                fingers += 1
-        # other four
-        for tip, pip in zip(tips[1:], pips[1:]):
-            if lm[tip][1] < lm[pip][1]:
-                fingers += 1
-        return fingers
 
     def _detect_swipe(self) -> Optional[str]:
         if len(self.history) < 2:
@@ -94,10 +71,6 @@ class HandDetector:
                 best = lm
         return best if best_area >= 0.05 else None
 
-    def _is_pointing_at_camera(self, landmarks) -> bool:
-        tip = landmarks.landmark[8]
-        dip = landmarks.landmark[7]
-        return tip.z < dip.z - 0.02
 
     def process(self) -> Tuple[Optional[Gesture], Optional[any]]:
         ret, frame = self.cap.read()
@@ -117,39 +90,9 @@ class HandDetector:
                 self.history.append((time.time(), wrist.x, wrist.y))
                 print(f"[HISTORY] entries={len(self.history)}, newest=({wrist.x:.2f},{wrist.y:.2f})")
 
-                fingers = self._count_fingers(hand)
-                now = time.time()
-
-                # scroll mode
-                if self.scroll_mode:
-                    if fingers == 1 and self._is_pointing_at_camera(hand):
-                        idx = hand.landmark[8].y
-                        if self._scroll_ref_y is None:
-                            self._scroll_ref_y = idx
-                        delta = self._scroll_ref_y - idx
-                        self._scroll_ref_y = idx
-                        gesture = Gesture(type="scroll", delta=delta)
-                    else:
-                        self.scroll_mode = False
-                        self._scroll_ref_y = None
-                else:
-                    # enter scroll: five-finger hold then point
-                    if fingers == 5:
-                        self._activation_time = now
-                    elif fingers == 1 and (now - self._activation_time) < 1.5 and self._is_pointing_at_camera(hand):
-                        print("[DEBUG] Entering scroll mode")
-                        self.scroll_mode = True
-                        self._scroll_ref_y = hand.landmark[8].y
-                    # finger count gestures
-                    elif fingers and (now - self.last_finger_time) > 0.5:
-                        gesture = Gesture(type="fingers", fingers=fingers)
-                        self.last_finger_time = now
-
-                # only detect swipes when not in scroll mode
-                if not self.scroll_mode:
-                    swipe = self._detect_swipe()
-                    if swipe:
-                        gesture = Gesture(type=swipe)
+                swipe = self._detect_swipe()
+                if swipe:
+                    gesture = Gesture(type=swipe)
 
             else:
                 self.history.clear()

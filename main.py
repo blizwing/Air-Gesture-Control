@@ -22,11 +22,8 @@ class App(tk.Tk):
             "swipe_right": tk.BooleanVar(value=True),
             "swipe_up":    tk.BooleanVar(value=True),
             "swipe_down":  tk.BooleanVar(value=True),
-            "fingers":     tk.BooleanVar(value=True),
-            "scroll":      tk.BooleanVar(value=True),
         }
         self._build_ui()
-        self._build_overlay()
         self.last_action: Dict[str, float] = {}
         self.delay = 66  # ~15 FPS
         self.update_frame()
@@ -41,16 +38,6 @@ class App(tk.Tk):
             cb.pack(side=tk.LEFT)
         tk.Button(btn_frame, text="Hide", command=self.iconify).pack(side=tk.LEFT)
 
-    def _build_overlay(self) -> None:
-        self.overlay = tk.Toplevel(self)
-        self.overlay.overrideredirect(True)
-        self.overlay.attributes("-topmost", True)
-        self.overlay.attributes("-transparentcolor", "black")
-        self.overlay.geometry(f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}+0+0")
-        self.canvas = tk.Canvas(self.overlay, bg="black", highlightthickness=0)
-        self.canvas.pack(fill=tk.BOTH, expand=True)
-        self.overlay.withdraw()
-        self.overlay_visible = False
 
     def update_frame(self) -> None:
         gesture, frame = self.detector.process()
@@ -61,18 +48,7 @@ class App(tk.Tk):
             self.video_label.imgtk = imgtk
             self.video_label.configure(image=imgtk)
 
-        # overlay for scroll mode
-        if self.detector.scroll_mode:
-            if not self.overlay_visible:
-                self.canvas.delete("all")
-                w = self.winfo_screenwidth()
-                h = self.winfo_screenheight()
-                self.canvas.create_rectangle(0, 0, w, h, outline="white", width=4)
-                self.overlay.deiconify()
-                self.overlay_visible = True
-        elif self.overlay_visible:
-            self.overlay.withdraw()
-            self.overlay_visible = False
+
 
         if gesture:
             print(f"[DEBUG] Gesture received in update_frame: {gesture}")
@@ -88,11 +64,6 @@ class App(tk.Tk):
             print("[DEBUG] gesture ignored because flag is off or missing")
             return
 
-        # scroll
-        if gesture.type == "scroll" and gesture.delta is not None:
-            print(f"[DEBUG] scrolling by delta {gesture.delta:.3f}")
-            actions.scroll_wheel(int(gesture.delta * 1200))
-            return
 
         # rate-limit
         now = time.time()
@@ -111,9 +82,6 @@ class App(tk.Tk):
         elif gesture.type == "swipe_down":
             print("[DEBUG] swipe_down detected")
             actions.send_page_up()
-        elif gesture.type == "fingers" and gesture.fingers:
-            print(f"[DEBUG] fingers gesture: {gesture.fingers}")
-            actions.toggle_taskbar_slot(gesture.fingers)
         else:
             print(f"[DEBUG] unhandled gesture type: {gesture.type}")
 
