@@ -20,10 +20,10 @@ class App(tk.Tk):
         self.title("Air Gesture Control")
         self.detector = HandDetector()
         self.enabled: Dict[str, tk.BooleanVar] = {
-            "swipe_right": tk.BooleanVar(value=True),
+            "swipe_right": tk.BooleanVar(value=False),
             "swipe_up": tk.BooleanVar(value=True),
             "swipe_down": tk.BooleanVar(value=True),
-            "fingers": tk.BooleanVar(value=True),
+            "fingers": tk.BooleanVar(value=False),
         }
         self._build_ui()
         self.last_action: Dict[str, float] = {}
