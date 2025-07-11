@@ -32,7 +32,7 @@ class App(tk.Tk):
         self.update_frame()
 
     def _build_ui(self) -> None:
-        self.video_label = tk.Label(self)
+        self.video_label = tk.Label(self, bd=0, highlightthickness=0)
         self.video_label.pack()
         btn_frame = tk.Frame(self)
         btn_frame.pack()
@@ -48,6 +48,10 @@ class App(tk.Tk):
             imgtk = ImageTk.PhotoImage(image=img)
             self.video_label.imgtk = imgtk
             self.video_label.configure(image=imgtk)
+        if self.detector.scroll_mode:
+            self.video_label.configure(highlightbackground="white", highlightthickness=4)
+        else:
+            self.video_label.configure(highlightthickness=0)
         if gesture:
             self.handle_gesture(gesture)
         self.after(self.delay, self.update_frame)
@@ -74,7 +78,14 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     app = App()
-    app.protocol("WM_DELETE_WINDOW", lambda: (app.detector.release(), app.destroy()))
+    app.protocol(
+        "WM_DELETE_WINDOW",
+        lambda: (
+            actions.release_mod_keys(),
+            app.detector.release(),
+            app.destroy(),
+        ),
+    )
     app.mainloop()
 
 
