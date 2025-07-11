@@ -24,6 +24,7 @@ class App(tk.Tk):
             "swipe_up": tk.BooleanVar(value=True),
             "swipe_down": tk.BooleanVar(value=True),
             "fingers": tk.BooleanVar(value=False),
+            "scroll": tk.BooleanVar(value=True),
         }
         self._build_ui()
         self.last_action: Dict[str, float] = {}
@@ -53,6 +54,9 @@ class App(tk.Tk):
 
     def handle_gesture(self, gesture: Gesture) -> None:
         if not self.enabled.get(gesture.type, tk.BooleanVar(value=False)).get():
+            return
+        if gesture.type == "scroll" and gesture.delta is not None:
+            actions.scroll_wheel(int(gesture.delta * 1200))
             return
         now = time.time()
         if now - self.last_action.get(gesture.type, 0) < 1.0:
