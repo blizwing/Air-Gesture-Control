@@ -14,6 +14,9 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+The `requirements.txt` file pins OpenCV below version 4.12 because newer
+releases require `numpy>=2`, while MediaPipe still depends on `numpy<2`.
+
 ## Running
 
 Run the main application:
